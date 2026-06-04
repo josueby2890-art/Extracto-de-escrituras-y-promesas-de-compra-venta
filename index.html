@@ -1,0 +1,1628 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Extractor Avitat Unique → HubSpot · Inversiones Bolívar</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- MSAL desde jsDelivr (mirror oficial de Microsoft en GitHub) -->
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.10.0/lib/msal-browser.min.js"></script>
+<script>
+  if (window['pdfjsLib']) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
+
+<style>
+:root {
+  --bolivar-blue: #1B3A6B;
+  --bolivar-blue-dark: #122849;
+  --bolivar-blue-soft: #E8EDF4;
+  --bolivar-green: #00A651;
+  --bolivar-green-soft: #E6F5EC;
+  --bolivar-terracotta: #D14C2E;
+  --warn: #C97A0F;
+  --warn-soft: #FDF3E2;
+  --error: #B42318;
+  --error-soft: #FBEAE9;
+  --ink: #1A1F2C;
+  --ink-soft: #5A6478;
+  --line: #E2E5EC;
+  --paper: #FAFAF7;
+  --card: #FFFFFF;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  font-family: 'Geist', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============ ICONS ============ */
+.icon { width: 18px; height: 18px; vertical-align: middle; stroke-width: 1.7; }
+.icon-sm { width: 14px; height: 14px; }
+.icon-lg { width: 26px; height: 26px; stroke-width: 1.5; }
+
+/* ============ APPBAR ============ */
+.appbar {
+  background: var(--bolivar-blue);
+  color: white;
+  padding: 18px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--bolivar-green);
+}
+.appbar .brand { display: flex; align-items: baseline; gap: 14px; }
+.appbar .brand-mark {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.appbar .brand-sub {
+  font-size: 12px;
+  opacity: 0.7;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.appbar .meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+/* ============ LAYOUT ============ */
+.shell {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 32px 80px;
+}
+
+h1.page-title {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+  color: var(--bolivar-blue-dark);
+  margin-bottom: 6px;
+}
+.page-subtitle {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+/* ============ SOURCE TOGGLE ============ */
+.source-toggle {
+  display: inline-flex;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px;
+  margin-bottom: 22px;
+  gap: 2px;
+}
+.source-toggle button {
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 7px 16px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.source-toggle button.active {
+  background: var(--bolivar-blue);
+  color: white;
+}
+.source-toggle button:not(.active):hover { background: var(--paper); color: var(--ink); }
+
+/* ============ SHAREPOINT CONFIG ============ */
+.sp-config {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 22px;
+  margin-bottom: 22px;
+  display: none;
+}
+.sp-config.active { display: block; }
+
+.sp-config h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 18px;
+  color: var(--bolivar-blue-dark);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.sp-config .hint {
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  margin-bottom: 16px;
+}
+.sp-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+  margin-bottom: 16px;
+}
+.sp-config-grid .full { grid-column: 1 / -1; }
+
+.field label {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.field input {
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--paper);
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--bolivar-blue);
+  background: white;
+}
+
+.sp-auth {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.sp-auth-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.sp-auth-status.connected { color: var(--bolivar-green); }
+.sp-auth-actions { display: flex; gap: 8px; }
+
+/* ============ STEPS ============ */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 22px;
+}
+.step {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 18px 18px 56px;
+  position: relative;
+  transition: all 0.2s;
+}
+.step .step-num {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bolivar-blue-soft);
+  color: var(--bolivar-blue);
+  display: grid; place-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+}
+.step.done .step-num {
+  background: var(--bolivar-green);
+  color: white;
+}
+.step.done .step-num .step-num-text { display: none; }
+.step.done .step-num .step-num-check { display: block; }
+.step .step-num-check { display: none; }
+
+.step h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 16px;
+  margin-bottom: 4px;
+  color: var(--bolivar-blue-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step p {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.step .status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.step.done .status { color: var(--bolivar-green); }
+
+/* ============ DROPZONES ============ */
+.dropzone {
+  border: 2px dashed var(--line);
+  border-radius: 8px;
+  padding: 16px 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.dropzone:hover, .dropzone.drag {
+  border-color: var(--bolivar-blue);
+  background: var(--bolivar-blue-soft);
+  color: var(--bolivar-blue-dark);
+}
+.dropzone input[type=file] { display: none; }
+.dropzone .icon { color: var(--bolivar-blue); }
+
+.sp-action-btn {
+  width: 100%;
+  background: var(--bolivar-blue-soft);
+  border: 1px solid var(--bolivar-blue);
+  color: var(--bolivar-blue-dark);
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.sp-action-btn:hover:not(:disabled) {
+  background: var(--bolivar-blue);
+  color: white;
+}
+.sp-action-btn:disabled {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+/* ============ BUTTONS ============ */
+button, .btn {
+  font-family: 'Geist', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn-primary {
+  background: var(--bolivar-blue);
+  color: white;
+}
+.btn-primary:hover { background: var(--bolivar-blue-dark); }
+.btn-primary:disabled {
+  background: var(--line); color: var(--ink-soft); cursor: not-allowed;
+}
+.btn-accent {
+  background: var(--bolivar-green);
+  color: white;
+}
+.btn-accent:hover { background: #008A43; }
+.btn-accent:disabled {
+  background: var(--line); color: var(--ink-soft); cursor: not-allowed;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--bolivar-blue);
+  border: 1px solid var(--line);
+}
+.btn-ghost:hover { background: var(--bolivar-blue-soft); }
+
+/* ============ CONTROLS ============ */
+.controls {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 18px;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.controls.visible { display: flex; }
+.controls-info { display: flex; gap: 28px; font-size: 12.5px; }
+.controls-info .stat { display: flex; flex-direction: column; }
+.controls-info .stat-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--bolivar-blue-dark);
+}
+.controls-info .stat-lbl {
+  font-size: 10.5px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.controls-actions { display: flex; gap: 10px; }
+
+/* ============ TABLE ============ */
+.table-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 70vh;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bolivar-blue-dark);
+  color: white;
+}
+thead th {
+  text-align: left;
+  padding: 11px 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  border-right: 1px solid rgba(255,255,255,0.08);
+}
+thead th:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--bolivar-blue-dark);
+  z-index: 3;
+}
+tbody tr { border-bottom: 1px solid var(--line); }
+tbody tr:hover { background: var(--bolivar-blue-soft); }
+tbody td {
+  padding: 8px 10px;
+  vertical-align: top;
+  border-right: 1px solid var(--line);
+  min-width: 100px;
+}
+tbody td:first-child {
+  position: sticky;
+  left: 0;
+  background: white;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--bolivar-blue-dark);
+  z-index: 1;
+}
+tbody tr:hover td:first-child { background: var(--bolivar-blue-soft); }
+
+td.cell-edit { cursor: text; position: relative; }
+td.cell-edit:focus-within {
+  outline: 2px solid var(--bolivar-blue);
+  background: white !important;
+}
+td .cell-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ink);
+  padding: 0;
+}
+td .cell-input:focus { outline: none; }
+
+.dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.dot.ok { background: var(--bolivar-green); }
+.dot.warn { background: var(--warn); }
+.dot.miss { background: var(--error); }
+.dot.empty { background: var(--line); }
+
+td.s-ok { background: var(--bolivar-green-soft); }
+td.s-warn { background: var(--warn-soft); }
+td.s-miss { background: var(--error-soft); }
+
+/* ============ LOG ============ */
+.log {
+  background: #0E1A2B;
+  color: #B8C5D6;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 14px;
+  display: none;
+}
+.log.visible { display: block; }
+.log .ts { color: #6B7C95; }
+.log .ok { color: var(--bolivar-green); }
+.log .warn { color: #F4B73D; }
+.log .err { color: #E87864; }
+
+.progress-bar {
+  height: 4px;
+  background: var(--bolivar-blue-soft);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 10px;
+  display: none;
+}
+.progress-bar.visible { display: block; }
+.progress-fill {
+  height: 100%;
+  background: var(--bolivar-green);
+  width: 0%;
+  transition: width 0.3s;
+}
+
+.legend {
+  display: none;
+  gap: 22px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  margin-bottom: 14px;
+}
+.legend.visible { display: flex; }
+.legend-item { display: flex; align-items: center; }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink-soft);
+}
+.empty-state h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 18px;
+  margin-bottom: 6px;
+  color: var(--bolivar-blue-dark);
+}
+
+.badge {
+  display: inline-block;
+  background: var(--bolivar-blue-soft);
+  color: var(--bolivar-blue-dark);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-left: 6px;
+}
+.badge.green { background: var(--bolivar-green-soft); color: var(--bolivar-green); }
+
+.help-link {
+  color: var(--bolivar-blue);
+  text-decoration: none;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.help-link:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- ============ ICON SPRITE ============ -->
+<svg style="position:absolute;width:0;height:0" aria-hidden="true">
+  <defs>
+    <symbol id="i-sheet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+    </symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="8" y1="13" x2="16" y2="13"/>
+      <line x1="8" y1="17" x2="14" y2="17"/>
+    </symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5">
+      <polyline points="20 6 9 17 4 12"/>
+    </symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="4" width="18" height="12" rx="1"/>
+      <line x1="2" y1="20" x2="22" y2="20"/>
+    </symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
+    </symbol>
+    <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </symbol>
+    <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+    </symbol>
+    <symbol id="i-user-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="8.5" cy="7" r="4"/>
+      <polyline points="17 11 19 13 23 9"/>
+    </symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/>
+      <polyline points="1 20 1 14 7 14"/>
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+    </symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="4 17 10 11 4 5"/>
+      <line x1="12" y1="19" x2="20" y2="19"/>
+    </symbol>
+    <symbol id="i-log-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+      <polyline points="16 17 21 12 16 7"/>
+      <line x1="21" y1="12" x2="9" y2="12"/>
+    </symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ============ APPBAR ============ -->
+<header class="appbar">
+  <div class="brand">
+    <div class="brand-mark">Inversiones Bolívar</div>
+    <div class="brand-sub">Extractor Avitat Unique → HubSpot</div>
+  </div>
+  <div class="meta">v2.0 · MSAL + Graph</div>
+</header>
+
+<main class="shell">
+  <h1 class="page-title">Extracción masiva de propiedades para HubSpot</h1>
+  <p class="page-subtitle">
+    Combina el Reporte de Escrituraciones con las cartas de aprobación financiera y genera la tabla lista para carga en HubSpot.
+  </p>
+
+  <!-- ============ SOURCE TOGGLE ============ -->
+  <div class="source-toggle">
+    <button id="modeLocal" class="active">
+      <svg class="icon icon-sm"><use href="#i-laptop"/></svg>
+      Archivos locales
+    </button>
+    <button id="modeSharepoint">
+      <svg class="icon icon-sm"><use href="#i-cloud"/></svg>
+      Desde SharePoint
+    </button>
+  </div>
+
+  <!-- ============ SHAREPOINT CONFIG (oculto por defecto) ============ -->
+  <section class="sp-config" id="spConfig">
+    <h3>
+      <svg class="icon"><use href="#i-key"/></svg>
+      Configuración SharePoint
+    </h3>
+    <p class="hint">
+      Estos datos se guardan solo en tu navegador (localStorage). Necesitas una App Registration en Azure AD con permisos
+      delegados <code>Files.Read.All</code> y <code>Sites.Read.All</code>, y tu URL de GitHub Pages registrada como SPA redirect URI.
+    </p>
+
+    <div class="sp-config-grid">
+      <div class="field">
+        <label>Tenant ID</label>
+        <input type="text" id="cfgTenantId" placeholder="00000000-0000-0000-0000-000000000000" />
+      </div>
+      <div class="field">
+        <label>Client ID</label>
+        <input type="text" id="cfgClientId" placeholder="00000000-0000-0000-0000-000000000000" />
+      </div>
+      <div class="field full">
+        <label>URL del Reporte CV (Excel)</label>
+        <input type="text" id="cfgExcelUrl" placeholder="https://bolivarc.sharepoint.com/:x:/s/..." />
+      </div>
+      <div class="field full">
+        <label>URL de la carpeta Clientes UNIQUE</label>
+        <input type="text" id="cfgFolderUrl" placeholder="https://bolivarc.sharepoint.com/:f:/s/..." />
+      </div>
+    </div>
+
+    <div class="sp-auth">
+      <div class="sp-auth-status" id="authStatus">
+        <svg class="icon icon-sm"><use href="#i-user-check"/></svg>
+        <span>No conectado</span>
+      </div>
+      <div class="sp-auth-actions">
+        <button class="btn btn-ghost" id="btnSaveConfig">Guardar configuración</button>
+        <button class="btn btn-primary" id="btnConnect">
+          <svg class="icon icon-sm"><use href="#i-link"/></svg>
+          Conectar a Microsoft 365
+        </button>
+        <button class="btn btn-ghost" id="btnSignOut" style="display:none;">
+          <svg class="icon icon-sm"><use href="#i-log-out"/></svg>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STEPS ============ -->
+  <section class="steps">
+    <div class="step" id="step1">
+      <div class="step-num">
+        <span class="step-num-text">1</span>
+        <svg class="icon icon-sm step-num-check"><use href="#i-check"/></svg>
+      </div>
+      <h3>
+        <svg class="icon"><use href="#i-sheet"/></svg>
+        Reporte de Escrituraciones
+      </h3>
+      <p>Lee las columnas L, AP, BE y BF del archivo <code>Reporte CV- Avitat Unique.xlsx</code>.</p>
+
+      <div data-mode="local">
+        <label class="dropzone" id="dzExcel">
+          <svg class="icon icon-lg"><use href="#i-sheet"/></svg>
+          <span>Arrastra o haz clic para seleccionar el Excel</span>
+          <input type="file" id="fileExcel" accept=".xlsx,.xls" />
+        </label>
+      </div>
+      <div data-mode="sharepoint" style="display:none;">
+        <button class="sp-action-btn" id="btnLoadExcelSP" disabled>
+          <svg class="icon"><use href="#i-cloud"/></svg>
+          Descargar desde SharePoint
+        </button>
+      </div>
+
+      <div class="status" id="statusExcel">Esperando archivo…</div>
+    </div>
+
+    <div class="step" id="step2">
+      <div class="step-num">
+        <span class="step-num-text">2</span>
+        <svg class="icon icon-sm step-num-check"><use href="#i-check"/></svg>
+      </div>
+      <h3>
+        <svg class="icon"><use href="#i-doc"/></svg>
+        Cartas / Compraventas
+      </h3>
+      <p>Uno o varios PDFs de cartas de aprobación o compraventas (contado).</p>
+
+      <div data-mode="local">
+        <label class="dropzone" id="dzPdf">
+          <svg class="icon icon-lg"><use href="#i-doc"/></svg>
+          <span>Arrastra PDFs o haz clic para seleccionarlos</span>
+          <input type="file" id="filePdfs" accept=".pdf" multiple />
+        </label>
+      </div>
+      <div data-mode="sharepoint" style="display:none;">
+        <button class="sp-action-btn" id="btnLoadPdfsSP" disabled>
+          <svg class="icon"><use href="#i-folder"/></svg>
+          Recorrer carpetas en SharePoint
+        </button>
+      </div>
+
+      <div class="status" id="statusPdfs">Esperando archivos…</div>
+      <div class="progress-bar" id="pdfProgress"><div class="progress-fill" id="pdfProgressFill"></div></div>
+    </div>
+
+    <div class="step" id="step3">
+      <div class="step-num">
+        <span class="step-num-text">3</span>
+        <svg class="icon icon-sm step-num-check"><use href="#i-check"/></svg>
+      </div>
+      <h3>
+        <svg class="icon"><use href="#i-download"/></svg>
+        Revisar y exportar
+      </h3>
+      <p>Valida los valores, edita campos pendientes y descarga el Excel listo para HubSpot.</p>
+      <button class="btn btn-accent" id="btnExport" disabled style="width:100%;justify-content:center;padding:11px;">
+        <svg class="icon icon-sm"><use href="#i-download"/></svg>
+        Exportar para HubSpot
+      </button>
+      <div class="status" id="statusExport">Pendiente de datos…</div>
+    </div>
+  </section>
+
+  <!-- ============ CONTROLS ============ -->
+  <div class="controls" id="controls">
+    <div class="controls-info">
+      <div class="stat"><span class="stat-val" id="statTotal">0</span><span class="stat-lbl">Apartamentos</span></div>
+      <div class="stat"><span class="stat-val" id="statComplete">0</span><span class="stat-lbl">Completos</span></div>
+      <div class="stat"><span class="stat-val" id="statPartial">0</span><span class="stat-lbl">Parciales</span></div>
+      <div class="stat"><span class="stat-val" id="statMissing">0</span><span class="stat-lbl">Sin PDF</span></div>
+    </div>
+    <div class="controls-actions">
+      <button class="btn btn-ghost" id="btnReset">
+        <svg class="icon icon-sm"><use href="#i-refresh"/></svg>
+        Reiniciar
+      </button>
+      <button class="btn btn-ghost" id="btnToggleLog">
+        <svg class="icon icon-sm"><use href="#i-terminal"/></svg>
+        Ver log
+      </button>
+    </div>
+  </div>
+
+  <div class="legend" id="legend">
+    <div class="legend-item"><span class="dot ok"></span>Extraído con alta confianza</div>
+    <div class="legend-item"><span class="dot warn"></span>Requiere validación</div>
+    <div class="legend-item"><span class="dot miss"></span>No encontrado</div>
+    <div class="legend-item"><span class="dot empty"></span>Sin datos</div>
+  </div>
+
+  <div id="tableContainer">
+    <div class="empty-state">
+      <h3>Aún no hay datos</h3>
+      <p>Carga el Reporte de Escrituraciones en el paso 1 para comenzar.</p>
+    </div>
+  </div>
+
+  <div class="log visible" id="log"></div>
+</main>
+
+<script>
+/* ============================================================
+   AVITAT → HUBSPOT EXTRACTOR · v2 (MSAL + Graph)
+   ============================================================ */
+
+const STATE = {
+  excelData: null,
+  pdfData: new Map(),
+  combined: [],
+  mode: 'local',
+  msal: null,
+  account: null,
+};
+
+const HUBSPOT_FIELDS = [
+  { key: 'apartamento',     label: 'Apartamento' },
+  { key: 'etapa',           label: 'Etapa del negocio' },
+  { key: 'institucion',     label: 'Institución Bancaria' },
+  { key: 'formaPago',       label: 'Forma de Pago' },
+  { key: 'cuotaRango',      label: 'Rango cuota crédito' },
+  { key: 'tipoIngreso',     label: 'Tipo ingreso cliente' },
+  { key: 'nudaPropiedad',   label: 'Nombre Nuda Propiedad' },
+  { key: 'usufructo',       label: 'Nombre Usufructo' },
+  { key: 'figuraCV',        label: 'Figura Compraventa' },
+  { key: 'fechaFirmaCV',    label: 'Fecha Firma CV' },
+  { key: 'descuento',       label: 'Descuento Financiero' },
+  { key: 'interes',         label: 'Interés Financiamiento (%)' },
+  { key: 'plazoAnios',      label: 'Plazo (años)' },
+];
+
+const MSAL_SCOPES = ['Files.Read.All', 'Sites.Read.All'];
+const CFG_KEY = 'avitat_sp_config_v1';
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+
+function log(msg, level='info') {
+  const el = document.getElementById('log');
+  const ts = new Date().toLocaleTimeString('es-SV', { hour12: false });
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="ts">[${ts}]</span> <span class="${level}">${escapeHtml(msg)}</span>`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function colLetterToIndex(letter) {
+  let n = 0;
+  for (let i = 0; i < letter.length; i++) n = n * 26 + (letter.charCodeAt(i) - 64);
+  return n - 1;
+}
+
+function extractApartmentCode(text) {
+  if (!text) return null;
+  const patterns = [
+    /\b([A-Z]{1,2}\d{1,3}-\d{1,3}[A-Z]?)\b/i,
+    /\b([A-Z]{1,2}-?\d{2,4})\b/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[1].toUpperCase();
+  }
+  return null;
+}
+
+function setStepDone(stepId, statusText) {
+  const el = document.getElementById(stepId);
+  el.classList.add('done');
+  if (statusText) {
+    const s = el.querySelector('.status');
+    if (s) s.textContent = statusText;
+  }
+}
+
+/* ============================================================
+   CONFIG PERSISTENCE
+   ============================================================ */
+
+function loadConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
+    document.getElementById('cfgTenantId').value = cfg.tenantId || '';
+    document.getElementById('cfgClientId').value = cfg.clientId || '';
+    document.getElementById('cfgExcelUrl').value = cfg.excelUrl || '';
+    document.getElementById('cfgFolderUrl').value = cfg.folderUrl || '';
+  } catch (e) { /* ignore */ }
+}
+
+function saveConfig() {
+  const cfg = {
+    tenantId:  document.getElementById('cfgTenantId').value.trim(),
+    clientId:  document.getElementById('cfgClientId').value.trim(),
+    excelUrl:  document.getElementById('cfgExcelUrl').value.trim(),
+    folderUrl: document.getElementById('cfgFolderUrl').value.trim(),
+  };
+  try {
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+    log('✓ Configuración guardada en este navegador.', 'ok');
+    // Feedback visual en el botón
+    const btn = document.getElementById('btnSaveConfig');
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = '✓ Guardado';
+      btn.style.background = 'var(--bolivar-green-soft)';
+      btn.style.color = 'var(--bolivar-green)';
+      btn.style.borderColor = 'var(--bolivar-green)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }, 2000);
+    }
+  } catch (err) {
+    log(`✗ Error guardando: ${err.message}. Posible bloqueo de localStorage por Tracking Prevention.`, 'err');
+    alert(`No se pudo guardar la configuración: ${err.message}\n\nProbablemente el navegador está bloqueando localStorage. Desactivá la prevención de seguimiento para este sitio o usá Chrome.`);
+  }
+  return cfg;
+}
+
+function getConfig() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+
+/* ============================================================
+   MSAL
+   ============================================================ */
+
+async function initMsal() {
+  const cfg = getConfig();
+  if (!cfg.clientId || !cfg.tenantId) return false;
+
+  STATE.msal = new msal.PublicClientApplication({
+    auth: {
+      clientId: cfg.clientId,
+      authority: `https://login.microsoftonline.com/${cfg.tenantId}`,
+      redirectUri: window.location.href.split('#')[0].split('?')[0],
+    },
+    cache: { cacheLocation: 'sessionStorage' },
+  });
+  await STATE.msal.initialize();
+
+  const accounts = STATE.msal.getAllAccounts();
+  if (accounts.length > 0) {
+    STATE.account = accounts[0];
+    updateAuthUI(true);
+    return true;
+  }
+  return false;
+}
+
+async function signIn() {
+  const cfg = saveConfig();
+  if (!cfg.clientId || !cfg.tenantId) {
+    alert('Configura primero Tenant ID y Client ID.');
+    return;
+  }
+  if (!STATE.msal) {
+    const ok = await initMsal();
+    if (!ok && !STATE.msal) return;
+  }
+  try {
+    const resp = await STATE.msal.loginPopup({ scopes: MSAL_SCOPES, prompt: 'select_account' });
+    STATE.account = resp.account;
+    updateAuthUI(true);
+    log(`Sesión iniciada: ${STATE.account.username}`, 'ok');
+  } catch (err) {
+    log(`Error de login: ${err.message}`, 'err');
+  }
+}
+
+async function signOut() {
+  if (!STATE.msal) return;
+  await STATE.msal.logoutPopup({ account: STATE.account });
+  STATE.account = null;
+  updateAuthUI(false);
+  log('Sesión cerrada.');
+}
+
+async function getToken() {
+  if (!STATE.msal || !STATE.account) throw new Error('No hay sesión activa');
+  try {
+    const resp = await STATE.msal.acquireTokenSilent({ scopes: MSAL_SCOPES, account: STATE.account });
+    return resp.accessToken;
+  } catch (err) {
+    const resp = await STATE.msal.acquireTokenPopup({ scopes: MSAL_SCOPES });
+    return resp.accessToken;
+  }
+}
+
+function updateAuthUI(connected) {
+  const status = document.getElementById('authStatus');
+  if (connected) {
+    status.classList.add('connected');
+    status.querySelector('span').textContent = `Conectado: ${STATE.account.username}`;
+    document.getElementById('btnConnect').style.display = 'none';
+    document.getElementById('btnSignOut').style.display = 'inline-flex';
+    document.getElementById('btnLoadExcelSP').disabled = false;
+    document.getElementById('btnLoadPdfsSP').disabled = false;
+  } else {
+    status.classList.remove('connected');
+    status.querySelector('span').textContent = 'No conectado';
+    document.getElementById('btnConnect').style.display = 'inline-flex';
+    document.getElementById('btnSignOut').style.display = 'none';
+    document.getElementById('btnLoadExcelSP').disabled = true;
+    document.getElementById('btnLoadPdfsSP').disabled = true;
+  }
+}
+
+/* ============================================================
+   GRAPH API
+   ============================================================ */
+
+function encodeShareUrl(url) {
+  const b64 = btoa(unescape(encodeURIComponent(url)))
+    .replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
+  return 'u!' + b64;
+}
+
+async function graphGet(endpoint, token) {
+  const url = endpoint.startsWith('http') ? endpoint : `https://graph.microsoft.com/v1.0${endpoint}`;
+  const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`Graph ${resp.status}: ${err.slice(0, 200)}`);
+  }
+  return resp.json();
+}
+
+async function loadExcelFromSharePoint() {
+  const cfg = getConfig();
+  if (!cfg.excelUrl) { alert('Configura primero la URL del Excel.'); return; }
+  try {
+    const token = await getToken();
+    log(`Resolviendo Excel: ${cfg.excelUrl.slice(0, 60)}…`);
+    const shareId = encodeShareUrl(cfg.excelUrl);
+    const item = await graphGet(`/shares/${shareId}/driveItem`, token);
+    log(`Descargando ${item.name} (${(item.size / 1024).toFixed(0)} KB)…`);
+    const arrayBuffer = await fetch(item['@microsoft.graph.downloadUrl']).then(r => r.arrayBuffer());
+    await processExcelBuffer(arrayBuffer, item.name);
+  } catch (err) {
+    log(`Error cargando Excel: ${err.message}`, 'err');
+    alert(`Error: ${err.message}`);
+  }
+}
+
+async function loadPdfsFromSharePoint() {
+  const cfg = getConfig();
+  if (!cfg.folderUrl) { alert('Configura primero la URL de la carpeta.'); return; }
+  try {
+    const token = await getToken();
+    log(`Resolviendo carpeta: ${cfg.folderUrl.slice(0, 60)}…`);
+    const shareId = encodeShareUrl(cfg.folderUrl);
+    const folderItem = await graphGet(`/shares/${shareId}/driveItem`, token);
+    const driveId = folderItem.parentReference.driveId;
+    const folderId = folderItem.id;
+    log(`Listando subcarpetas en ${folderItem.name}…`);
+
+    const subsResp = await graphGet(`/drives/${driveId}/items/${folderId}/children?$top=200`, token);
+    const subFolders = subsResp.value.filter(c => c.folder);
+    log(`${subFolders.length} subcarpetas encontradas.`, 'ok');
+
+    // Por cada subcarpeta, buscar el PDF más relevante
+    const pdfTasks = [];
+    for (const sub of subFolders) {
+      const code = extractApartmentCode(sub.name) || sub.name;
+      try {
+        const files = await graphGet(`/drives/${driveId}/items/${sub.id}/children?$top=50`, token);
+        const pdfs = files.value.filter(f => f.file && f.name.toLowerCase().endsWith('.pdf'));
+        const prioritized = prioritizePdfs(pdfs);
+        if (prioritized.length === 0) {
+          log(`${code}: sin PDFs en la subcarpeta`, 'warn');
+          continue;
+        }
+        // tomar el primero (de mayor prioridad)
+        pdfTasks.push({ code, pdfFile: prioritized[0] });
+      } catch (err) {
+        log(`${sub.name}: ${err.message}`, 'err');
+      }
+    }
+
+    log(`${pdfTasks.length} PDFs identificados para procesar.`);
+    await processGraphPdfBatch(pdfTasks, token);
+  } catch (err) {
+    log(`Error cargando carpeta: ${err.message}`, 'err');
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// Prioriza PDFs por nombre: cartas de aprobación > compraventas > otros
+function prioritizePdfs(files) {
+  const score = (name) => {
+    const n = name.toLowerCase();
+    let s = 0;
+    if (n.includes('carta') && (n.includes('aprob') || n.includes('credito') || n.includes('crédito'))) s += 100;
+    if (n.includes('aprobacion') || n.includes('aprobación')) s += 80;
+    if (n.includes('cv-') || n.startsWith('cv') || n.includes('compraventa')) s += 60;
+    if (n.includes('escritura')) s += 40;
+    return s;
+  };
+  return [...files].sort((a, b) => score(b.name) - score(a.name));
+}
+
+async function processGraphPdfBatch(tasks, token) {
+  document.getElementById('statusPdfs').textContent = `Procesando 0 / ${tasks.length}…`;
+  const progressBar = document.getElementById('pdfProgress');
+  const progressFill = document.getElementById('pdfProgressFill');
+  progressBar.classList.add('visible');
+  progressFill.style.width = '0%';
+
+  let done = 0, ok = 0, scanned = 0;
+  for (const task of tasks) {
+    try {
+      const buf = await fetch(task.pdfFile['@microsoft.graph.downloadUrl']).then(r => r.arrayBuffer());
+      const text = await extractPdfTextFromBuffer(buf);
+      const textLen = text.replace(/\s+/g, '').length;
+      if (textLen < 200) {
+        STATE.pdfData.set(task.code, {
+          _scanned: true, _filename: task.pdfFile.name, _text: text,
+        });
+        log(`${task.code}: PDF escaneado (${task.pdfFile.name}). Requiere OCR.`, 'warn');
+        scanned++;
+      } else {
+        const fields = extractFieldsFromText(text);
+        STATE.pdfData.set(task.code, {
+          _scanned: false, _filename: task.pdfFile.name, _text: text, ...fields,
+        });
+        log(`${task.code}: ${task.pdfFile.name}`, 'ok');
+        ok++;
+      }
+    } catch (err) {
+      log(`${task.code}: ${err.message}`, 'err');
+    }
+    done++;
+    progressFill.style.width = `${(done / tasks.length) * 100}%`;
+    document.getElementById('statusPdfs').textContent = `Procesando ${done} / ${tasks.length}…`;
+  }
+
+  const msg = `${ok} OK · ${scanned} escaneados`;
+  setStepDone('step2', msg);
+  log(`Lote completo: ${msg}`, 'ok');
+  rebuildTable();
+}
+
+/* ============================================================
+   EXCEL PROCESSING (compartido entre local y SharePoint)
+   ============================================================ */
+
+async function processExcelBuffer(buf, filename) {
+  log(`Procesando Excel: ${filename}`);
+  const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+  const sheetName = wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+
+  let headerRow = 0, dataStart = 1;
+  if (!rows[0] || rows[0].every(c => !String(c).trim())) {
+    headerRow = 1; dataStart = 2;
+  }
+
+  const idxBE = colLetterToIndex('BE');
+  const idxBF = colLetterToIndex('BF');
+  const idxL  = colLetterToIndex('L');
+  const idxAP = colLetterToIndex('AP');
+
+  const hdr = rows[headerRow] || [];
+  let aptCol = -1;
+  hdr.forEach((h, i) => {
+    const t = String(h).toLowerCase();
+    if (aptCol === -1 && (t.includes('apartamento') || t.includes('unidad') || t.includes('código') || t.includes('codigo') || t === 'apto')) aptCol = i;
+  });
+  if (aptCol === -1) {
+    for (let c = 0; c < 5; c++) {
+      const sample = rows[dataStart]?.[c];
+      if (sample && extractApartmentCode(String(sample))) { aptCol = c; break; }
+    }
+  }
+  if (aptCol === -1) {
+    log('No se identificó columna de apartamento. Usando A por defecto.', 'warn');
+    aptCol = 0;
+  } else {
+    log(`Columna de apartamento: ${String.fromCharCode(65 + aptCol)} (${hdr[aptCol] || 'A'})`);
+  }
+
+  const excelMap = new Map();
+  let counted = 0;
+  for (let r = dataStart; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.every(c => !String(c).trim())) continue;
+    const aptRaw = String(row[aptCol] || '').trim();
+    const apt = extractApartmentCode(aptRaw) || (aptRaw.match(/^[A-Z0-9-]+$/i) ? aptRaw.toUpperCase() : null);
+    if (!apt) continue;
+    excelMap.set(apt, {
+      institucion: String(row[idxBF] || '').trim(),
+      formaPago:   String(row[idxBE] || '').trim(),
+      fechaFirmaCV: formatExcelDate(row[idxL]),
+      descuento:   String(row[idxAP] || '').trim(),
+    });
+    counted++;
+  }
+
+  STATE.excelData = excelMap;
+  document.getElementById('statusExcel').textContent = `${counted} apartamentos cargados`;
+  setStepDone('step1', `${counted} apartamentos cargados`);
+  log(`Excel procesado: ${counted} apartamentos`, 'ok');
+  rebuildTable();
+}
+
+function formatExcelDate(v) {
+  if (!v) return '';
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (m) {
+    const yyyy = m[3].length === 2 ? '20' + m[3] : m[3];
+    return `${yyyy}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  }
+  return s;
+}
+
+/* ============================================================
+   PDF PROCESSING (local)
+   ============================================================ */
+
+async function handleLocalPdfFiles(files) {
+  document.getElementById('statusPdfs').textContent = `Procesando 0 / ${files.length}…`;
+  const progressBar = document.getElementById('pdfProgress');
+  const progressFill = document.getElementById('pdfProgressFill');
+  progressBar.classList.add('visible');
+  progressFill.style.width = '0%';
+
+  let done = 0, ok = 0, scanned = 0;
+  for (const file of files) {
+    try {
+      const buf = await file.arrayBuffer();
+      const text = await extractPdfTextFromBuffer(buf);
+      const code = extractApartmentCode(file.name) || extractApartmentCode(text);
+      if (!code) {
+        log(`${file.name}: no se identificó código de apartamento`, 'warn');
+      } else if (text.replace(/\s+/g, '').length < 200) {
+        STATE.pdfData.set(code, { _scanned: true, _filename: file.name, _text: text });
+        log(`${code}: escaneado, requiere OCR`, 'warn');
+        scanned++;
+      } else {
+        const fields = extractFieldsFromText(text);
+        STATE.pdfData.set(code, { _scanned: false, _filename: file.name, _text: text, ...fields });
+        log(`${code}: ${file.name}`, 'ok');
+        ok++;
+      }
+    } catch (err) {
+      log(`${file.name}: ${err.message}`, 'err');
+    }
+    done++;
+    progressFill.style.width = `${(done / files.length) * 100}%`;
+    document.getElementById('statusPdfs').textContent = `Procesando ${done} / ${files.length}…`;
+  }
+  const msg = `${ok} OK · ${scanned} escaneados`;
+  setStepDone('step2', msg);
+  log(`Lote local completo: ${msg}`, 'ok');
+  rebuildTable();
+}
+
+async function extractPdfTextFromBuffer(buf) {
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(it => it.str).join(' ') + '\n';
+  }
+  return text;
+}
+
+/* ============================================================
+   EXTRACCIÓN DE CAMPOS (regex)
+   ============================================================ */
+
+function extractFieldsFromText(text) {
+  return {
+    interes:        extractInteres(text),
+    plazoAnios:     extractPlazo(text),
+    cuotaRango:     extractCuota(text),
+    institucionPdf: extractBanco(text),
+    figuraCV:       extractFigura(text),
+    nudaPropiedad:  extractNuda(text),
+    usufructo:      extractUsufructo(text),
+  };
+}
+
+function extractInteres(text) {
+  const patterns = [
+    /(?:tasa(?:\s+(?:de\s+)?inter[eé]s)?|inter[eé]s)[^.%]{0,80}?(\d{1,2}[\.,]\d{1,4})\s*%/i,
+    /(\d{1,2}[\.,]\d{1,4})\s*%\s*(?:anual|nominal|efectiva|variable)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const val = m[1].replace(',', '.');
+      const ctx = text.substr(Math.max(0, m.index - 20), 200).match(/(anual\s+variable|anual|nominal|efectiva|variable)/i);
+      const suffix = ctx ? ` ${ctx[1].toLowerCase()}` : '';
+      return { value: `${val}%${suffix}`, confidence: 'high' };
+    }
+  }
+  return { value: '', confidence: 'none' };
+}
+
+function extractPlazo(text) {
+  const mAnios = text.match(/(?:plazo\s+(?:de\s+|del\s+)?|por\s+un\s+plazo\s+de\s+|a\s+un\s+plazo\s+de\s+)?(\d{1,2})\s*a[ñn]os/i);
+  if (mAnios) return { value: mAnios[1], confidence: 'high' };
+  const mMeses = text.match(/(?:plazo\s+de\s+)?(\d{2,3})\s*meses/i);
+  if (mMeses) {
+    const anios = Math.round(parseInt(mMeses[1]) / 12);
+    return { value: String(anios), confidence: 'med' };
+  }
+  return { value: '', confidence: 'none' };
+}
+
+function extractCuota(text) {
+  const patterns = [
+    /cuota\s+mensual[^$]{0,80}?(?:US?\$|USD?)\s*([\d,]+\.\d{2})/i,
+    /(?:US?\$|USD?)\s*([\d,]+\.\d{2})\s*(?:mensual|mensuales)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const num = parseFloat(m[1].replace(/,/g, ''));
+      return { value: `US$${num.toFixed(2)}`, confidence: 'med' };
+    }
+  }
+  return { value: '', confidence: 'none' };
+}
+
+function extractBanco(text) {
+  const bancos = [
+    'Banco Davivienda Salvadoreño', 'Davivienda',
+    'Banco Agrícola', 'Banco Agricola', 'Agrícola',
+    'Banco Cuscatlán', 'Banco Cuscatlan', 'Cuscatlán',
+    'Banco Promerica', 'Promerica',
+    'Banco Hipotecario', 'Hipotecario',
+    'Banco Atlántida', 'Atlántida',
+    'BAC El Salvador', 'BAC',
+    'Banco Azul', 'Azul',
+  ];
+  for (const b of bancos) {
+    if (new RegExp(`\\b${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text)) {
+      return { value: b, confidence: 'high' };
+    }
+  }
+  return { value: '', confidence: 'none' };
+}
+
+function extractFigura(text) {
+  const t = text.toLowerCase();
+  if (t.includes('nuda propiedad') && t.includes('usufructo')) {
+    return { value: 'Derecho de Nuda Propiedad y Derecho de Usufructo', confidence: 'high' };
+  }
+  if (t.includes('compraventa plena') || (t.includes('compraventa') && !t.includes('nuda'))) {
+    return { value: 'Compraventa plena', confidence: 'med' };
+  }
+  if (t.includes('crédito hipotecario') || t.includes('credito hipotecario')) {
+    return { value: 'Crédito hipotecario', confidence: 'med' };
+  }
+  return { value: '', confidence: 'none' };
+}
+
+function extractNuda(text) {
+  const m = text.match(/nuda\s+propiedad[^.]{0,40}?(?:a\s+favor\s+de|adquiere|adjudica\s+a)[^.]{0,120}?([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5}(?:\s+(?:y|&|e)\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})?)/i);
+  if (m) return { value: m[1].trim(), confidence: 'med' };
+  return { value: '', confidence: 'none' };
+}
+
+function extractUsufructo(text) {
+  const m = text.match(/usufructo[^.]{0,40}?(?:a\s+favor\s+de|adquiere|adjudica\s+a)[^.]{0,120}?([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5}(?:\s+(?:y|&|e)\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})?)/i);
+  if (m) return { value: m[1].trim(), confidence: 'med' };
+  return { value: '', confidence: 'none' };
+}
+
+/* ============================================================
+   TABLE BUILD
+   ============================================================ */
+
+function rebuildTable() {
+  if (!STATE.excelData) return;
+  const records = [];
+  const allCodes = new Set([...STATE.excelData.keys(), ...STATE.pdfData.keys()]);
+
+  for (const code of [...allCodes].sort()) {
+    const exc = STATE.excelData.get(code) || {};
+    const pdf = STATE.pdfData.get(code) || null;
+
+    records.push({
+      apartamento:   { value: code, conf: 'high' },
+      etapa:         { value: 'CV', conf: 'high' },
+      institucion:   { value: exc.institucion || (pdf?.institucionPdf?.value) || '', conf: exc.institucion ? 'high' : (pdf?.institucionPdf?.confidence || 'none') },
+      formaPago:     { value: exc.formaPago || '', conf: exc.formaPago ? 'high' : 'none' },
+      cuotaRango:    { value: pdf?.cuotaRango?.value || '', conf: pdf?.cuotaRango?.confidence || (pdf ? 'low' : 'none') },
+      tipoIngreso:   { value: '', conf: 'none' },
+      nudaPropiedad: { value: pdf?.nudaPropiedad?.value || '', conf: pdf?.nudaPropiedad?.confidence || (pdf ? 'low' : 'none') },
+      usufructo:     { value: pdf?.usufructo?.value || '', conf: pdf?.usufructo?.confidence || (pdf ? 'low' : 'none') },
+      figuraCV:      { value: pdf?.figuraCV?.value || '', conf: pdf?.figuraCV?.confidence || (pdf ? 'low' : 'none') },
+      fechaFirmaCV:  { value: exc.fechaFirmaCV || '', conf: exc.fechaFirmaCV ? 'high' : 'none' },
+      descuento:     { value: exc.descuento || '', conf: exc.descuento ? 'high' : 'none' },
+      interes:       { value: pdf?.interes?.value || '', conf: pdf?.interes?.confidence || (pdf ? 'low' : 'none') },
+      plazoAnios:    { value: pdf?.plazoAnios?.value || '', conf: pdf?.plazoAnios?.confidence || (pdf ? 'low' : 'none') },
+      _hasPdf:       !!pdf,
+      _scanned:      pdf?._scanned || false,
+    });
+  }
+  STATE.combined = records;
+  renderTable(records);
+  updateStats(records);
+}
+
+function renderTable(records) {
+  const container = document.getElementById('tableContainer');
+  if (!records.length) {
+    container.innerHTML = `<div class="empty-state"><h3>Aún no hay datos</h3><p>Carga el Reporte de Escrituraciones en el paso 1 para comenzar.</p></div>`;
+    return;
+  }
+  document.getElementById('controls').classList.add('visible');
+  document.getElementById('legend').classList.add('visible');
+  document.getElementById('btnExport').disabled = false;
+  document.getElementById('statusExport').textContent = `${records.length} apartamentos listos`;
+  setStepDone('step3', `${records.length} apartamentos listos`);
+
+  const thead = `<thead><tr>${HUBSPOT_FIELDS.map(f => `<th>${f.label}</th>`).join('')}</tr></thead>`;
+  const tbody = records.map(rec => {
+    const cells = HUBSPOT_FIELDS.map(f => {
+      const cell = rec[f.key] || { value: '', conf: 'none' };
+      const stateClass = confToClass(cell.conf);
+      const dotClass = confToDotClass(cell.conf);
+      const editable = f.key !== 'apartamento';
+      return `<td class="${stateClass} ${editable ? 'cell-edit' : ''}" data-code="${rec.apartamento.value}" data-field="${f.key}">
+        <span class="dot ${dotClass}"></span>
+        ${editable ? `<input class="cell-input" value="${escapeHtml(cell.value)}" />` : escapeHtml(cell.value)}
+      </td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+
+  container.innerHTML = `<div class="table-wrap"><table>${thead}<tbody>${tbody}</tbody></table></div>`;
+
+  container.querySelectorAll('.cell-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const td = e.target.closest('td');
+      const code = td.dataset.code;
+      const field = td.dataset.field;
+      const rec = STATE.combined.find(r => r.apartamento.value === code);
+      if (rec) {
+        rec[field].value = e.target.value;
+        rec[field].conf = e.target.value ? 'high' : 'none';
+        td.className = `${confToClass(rec[field].conf)} cell-edit`;
+        td.querySelector('.dot').className = `dot ${confToDotClass(rec[field].conf)}`;
+        updateStats(STATE.combined);
+      }
+    });
+  });
+}
+
+function confToClass(conf) {
+  if (conf === 'high') return 's-ok';
+  if (conf === 'med' || conf === 'low') return 's-warn';
+  return '';
+}
+function confToDotClass(conf) {
+  if (conf === 'high') return 'ok';
+  if (conf === 'med' || conf === 'low') return 'warn';
+  return 'empty';
+}
+
+function updateStats(records) {
+  const total = records.length;
+  let complete = 0, partial = 0, missingPdf = 0;
+  const checks = ['institucion','formaPago','cuotaRango','nudaPropiedad','usufructo','figuraCV','fechaFirmaCV','interes','plazoAnios'];
+  for (const r of records) {
+    if (!r._hasPdf) missingPdf++;
+    const filled = checks.filter(k => r[k].value).length;
+    if (filled === checks.length) complete++;
+    else if (filled > 0) partial++;
+  }
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statComplete').textContent = complete;
+  document.getElementById('statPartial').textContent = partial;
+  document.getElementById('statMissing').textContent = missingPdf;
+}
+
+/* ============================================================
+   EXPORT
+   ============================================================ */
+
+function exportToExcel() {
+  const headers = HUBSPOT_FIELDS.map(f => f.label);
+  const rows = STATE.combined.map(rec => HUBSPOT_FIELDS.map(f => rec[f.key]?.value || ''));
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = HUBSPOT_FIELDS.map(f => ({ wch: Math.max(f.label.length + 2, 18) }));
+
+  const meta = [
+    ['Extracción Avitat Unique → HubSpot'],
+    ['Generado:', new Date().toLocaleString('es-SV')],
+    ['Origen:', STATE.mode === 'sharepoint' ? 'SharePoint vía Microsoft Graph' : 'Archivos locales'],
+    ['Apartamentos totales:', STATE.combined.length],
+    ['Completos:', document.getElementById('statComplete').textContent],
+    ['Parciales:', document.getElementById('statPartial').textContent],
+    ['Sin PDF:', document.getElementById('statMissing').textContent],
+    [],
+    ['Fuentes:'],
+    ['Reporte Escrituraciones:', '(columnas L, AP, BE, BF)'],
+    ['Cartas Aprobación:', '(extracción regex + PDF.js)'],
+    ['Campos manuales:', 'Tipo de ingreso del cliente, Rango de cuota'],
+  ];
+  const wsMeta = XLSX.utils.aoa_to_sheet(meta);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Carga HubSpot');
+  XLSX.utils.book_append_sheet(wb, wsMeta, 'Resumen');
+
+  const ts = new Date().toISOString().slice(0, 10);
+  XLSX.writeFile(wb, `Carga_HubSpot_Avitat_${ts}.xlsx`);
+  log(`Excel exportado con ${STATE.combined.length} apartamentos`, 'ok');
+}
+
+/* ============================================================
+   UI WIRING
+   ============================================================ */
+
+function setupDropzone(zoneId, inputId, handler) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag');
+    handler(e.dataTransfer.files);
+  });
+  input.addEventListener('change', e => handler(e.target.files));
+}
+
+setupDropzone('dzExcel', 'fileExcel', async files => {
+  if (!files.length) return;
+  const f = files[0];
+  await processExcelBuffer(await f.arrayBuffer(), f.name);
+});
+setupDropzone('dzPdf', 'filePdfs', files => {
+  if (files.length) handleLocalPdfFiles(files);
+});
+
+// Mode toggle
+function setMode(mode) {
+  STATE.mode = mode;
+  document.getElementById('modeLocal').classList.toggle('active', mode === 'local');
+  document.getElementById('modeSharepoint').classList.toggle('active', mode === 'sharepoint');
+  document.getElementById('spConfig').classList.toggle('active', mode === 'sharepoint');
+  document.querySelectorAll('[data-mode="local"]').forEach(el => el.style.display = mode === 'local' ? 'block' : 'none');
+  document.querySelectorAll('[data-mode="sharepoint"]').forEach(el => el.style.display = mode === 'sharepoint' ? 'block' : 'none');
+}
+document.getElementById('modeLocal').addEventListener('click', () => setMode('local'));
+document.getElementById('modeSharepoint').addEventListener('click', () => setMode('sharepoint'));
+
+document.getElementById('btnSaveConfig').addEventListener('click', saveConfig);
+document.getElementById('btnConnect').addEventListener('click', signIn);
+document.getElementById('btnSignOut').addEventListener('click', signOut);
+document.getElementById('btnLoadExcelSP').addEventListener('click', loadExcelFromSharePoint);
+document.getElementById('btnLoadPdfsSP').addEventListener('click', loadPdfsFromSharePoint);
+
+document.getElementById('btnExport').addEventListener('click', exportToExcel);
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (confirm('¿Reiniciar y limpiar los datos cargados? La configuración SharePoint se conserva.')) {
+    STATE.excelData = null;
+    STATE.pdfData.clear();
+    STATE.combined = [];
+    location.reload();
+  }
+});
+document.getElementById('btnToggleLog').addEventListener('click', () => {
+  document.getElementById('log').classList.toggle('visible');
+});
+
+// Verificación de librerías cargadas
+function checkLibraries() {
+  const missing = [];
+  if (typeof XLSX === 'undefined') missing.push('SheetJS (XLSX)');
+  if (typeof pdfjsLib === 'undefined') missing.push('PDF.js');
+  if (typeof msal === 'undefined') missing.push('MSAL (autenticación Microsoft)');
+  if (missing.length) {
+    const msg = `⚠ Librerías no cargadas: ${missing.join(', ')}. Esto suele pasar por bloqueo del navegador (Tracking Prevention) o restricciones de red corporativa. Probá: 1) Desactivar prevención de seguimiento para este sitio, 2) Usar Chrome, 3) Verificar acceso a cdnjs.cloudflare.com`;
+    log(msg, 'err');
+    alert(msg);
+    return false;
+  }
+  log('Librerías cargadas correctamente: XLSX, PDF.js, MSAL', 'ok');
+  return true;
+}
+
+// Inicialización
+loadConfig();
+if (checkLibraries()) {
+  initMsal().then(connected => {
+    if (connected) log('Sesión SharePoint restaurada', 'ok');
+  }).catch(err => {
+    log(`Error inicializando MSAL: ${err.message}`, 'err');
+  });
+}
+log('Extractor v2 iniciado. Selecciona origen de datos para comenzar.');
+</script>
+</body>
+</html>
